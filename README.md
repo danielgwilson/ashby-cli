@@ -39,18 +39,41 @@ npm run build
 
 Ashby uses HTTP Basic auth with the API key as the username and a blank password.
 
+Ashby does not expose OAuth for this API. The easiest human setup path is browser-assisted API key creation.
+
 You can either:
 
 - set `ASHBY_API_KEY`
 - or store the key locally
 
 ```bash
+ashby auth setup
 ashby auth set --stdin
 ashby auth status
 ashby doctor
 ```
 
 If you are using `npx`, remember it will not load `.env.local` automatically. Export `ASHBY_API_KEY` first or source your env file in the shell.
+
+### Recommended first-time setup
+
+```bash
+ashby auth setup
+```
+
+This will:
+
+- open the Ashby API key admin page
+- remind you which permissions to enable
+- accept a pasted API key
+- save it locally
+- validate it immediately
+
+If you prefer not to install globally:
+
+```bash
+npx -y ashby-cli auth setup
+```
 
 ## Commands
 

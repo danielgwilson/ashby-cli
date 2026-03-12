@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
+import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
+import { stdin as input, stderr as output } from "node:process";
 import { saveAndValidateApiKey, validateApiKey } from "./auth.js";
+import { ASHBY_API_KEYS_URL, buildAuthSetupInstructions, openBrowser } from "./auth-setup.js";
 import { AshbyApiClient, AshbyApiError } from "./ashby-api.js";
 import { clearConfig, readConfig, redactApiKey, resolveApiKey } from "./config.js";
 import { formatCandidateRow, validateCandidateSearchInput } from "./candidates.js";
@@ -31,7 +34,7 @@ async function requireApiKey({ json }: CommonJsonOptions): Promise<string> {
 
   const error = makeError(null, { code: "AUTH_MISSING", message: "No API key. Run `ashby auth set --stdin`." });
   if (json) printJson(fail(error));
-  else process.stderr.write("No API key. Use `ashby auth set --stdin` or export `ASHBY_API_KEY`.\n");
+  else process.stderr.write("No API key. Use `ashby auth setup`, `ashby auth set --stdin`, or export `ASHBY_API_KEY`.\n");
   process.exitCode = 2;
   return "";
 }
@@ -83,6 +86,86 @@ const program = new Command();
 program.name("ashby").description("Agent-first CLI for Ashby's official API").version(getCliVersion());
 
 const auth = program.command("auth").description("Manage API key auth");
+
+auth
+  .command("setup")
+  .description("Open the Ashby API key page and save a pasted API key")
+  .option("--stdin", "Read the API key from stdin instead of prompting")
+  .option("--no-open", "Do not open the Ashby admin page in a browser")
+  .option("--open-only", "Only open the Ashby admin page and print setup guidance")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { stdin?: boolean; open?: boolean; openOnly?: boolean; json?: boolean }) => {
+    const resolved = await resolveApiKey();
+    const existingValidation = resolved ? await validateApiKey(resolved) : undefined;
+
+    const instructions = buildAuthSetupInstructions();
+    const browser =
+      opts.open === false
+        ? { attempted: false, ok: false as const, command: null as string | null, error: undefined as string | undefined }
+        : await openBrowser(ASHBY_API_KEYS_URL);
+    const browserMeta = {
+      attempted: opts.open !== false,
+      ok: browser.ok,
+      command: browser.command,
+      url: ASHBY_API_KEYS_URL,
+      error: browser.ok ? undefined : browser.error,
+    };
+
+    if (opts.openOnly) {
+      if (opts.json) {
+        printJson(
+          ok({
+            alreadyConfigured: Boolean(resolved),
+            existingValidation,
+            browser: browserMeta,
+            instructions,
+          }),
+        );
+      } else {
+        process.stderr.write(`${instructions}\n`);
+      }
+      return;
+    }
+
+    let apiKey = "";
+    if (opts.stdin) {
+      apiKey = await readStdin();
+    } else if (input.isTTY) {
+      const rl = createInterface({ input, output });
+      process.stderr.write(`${instructions}\n`);
+      apiKey = await rl.question("Paste Ashby API key: ");
+      rl.close();
+    } else {
+      const error = makeError(null, {
+        code: "AUTH_MISSING",
+        message: "No interactive terminal. Run `ashby auth setup --stdin`, `ashby auth set --stdin`, or export `ASHBY_API_KEY`.",
+      });
+      if (opts.json) {
+        printJson(fail(error, { browser: browserMeta, instructions }));
+      } else {
+        process.stderr.write(`${instructions}\n${error.message}\n`);
+      }
+      process.exitCode = 2;
+      return;
+    }
+
+    if (!apiKey.trim()) {
+      const error = makeError(null, { code: "VALIDATION", message: "No API key provided." });
+      if (opts.json) printJson(fail(error, { browser: browserMeta }));
+      else process.stderr.write("No API key provided.\n");
+      process.exitCode = 2;
+      return;
+    }
+
+    const result = await saveAndValidateApiKey(apiKey);
+    const payload = {
+      apiKeyRedacted: redactApiKey(result.apiKey),
+      validation: result.validation,
+      browser: browserMeta,
+    };
+    if (opts.json) printJson(ok(payload));
+    else console.log(`Saved API key ${payload.apiKeyRedacted}`);
+  });
 
 auth
   .command("set")

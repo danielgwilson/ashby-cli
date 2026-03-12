@@ -33,6 +33,7 @@ Default stance:
 
 ## Default workflow
 
+- If auth is missing, run `ashby auth setup`
 - Sanity check auth: `ashby doctor --json`
 - Inspect key identity: `ashby whoami --json`
 - Search for a candidate: `ashby candidate search --name "Jane Doe" --json`
@@ -62,12 +63,17 @@ For this repo's common Ashby triage flow, the default sequence is:
 
 ## Auth
 
+Ashby does not expose OAuth for this API. The recommended human path is browser-assisted API key setup.
+
 If `ashby doctor --json` reports missing auth:
 
+- Best interactive path: `ashby auth setup`
 - Best ephemeral path: `ASHBY_API_KEY=... ashby doctor --json`
 - Saved local config: `printf '%s' "$ASHBY_API_KEY" | ashby auth set --stdin`
 - If using `npx`, remember it does not load `.env.local` automatically. Export `ASHBY_API_KEY` first, or explicitly source your env file in the shell before invoking `npx -y ashby-cli ...`.
 - In this repo specifically, loading `.env.local` before `npx -y ashby-cli ...` is often the fastest fix.
+
+`ashby auth setup` opens `https://app.ashbyhq.com/admin/api/keys`, tells the user which permissions to enable, and then saves + validates the pasted key.
 
 Avoid pasting full keys into logs or chat.
 
