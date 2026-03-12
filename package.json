@@ -1,0 +1,62 @@
+{
+  "name": "ashby-cli",
+  "version": "0.1.0",
+  "description": "Agent-first CLI for Ashby's official API",
+  "license": "MIT",
+  "author": "Daniel G Wilson",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielgwilson/ashby-cli.git"
+  },
+  "homepage": "https://github.com/danielgwilson/ashby-cli#readme",
+  "bugs": {
+    "url": "https://github.com/danielgwilson/ashby-cli/issues"
+  },
+  "bin": {
+    "ashby": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ashby",
+    "ashbyhq",
+    "ats",
+    "recruiting",
+    "hiring",
+    "cli",
+    "agent-first"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.js',0o755)\"",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "npm run typecheck",
+    "test": "vitest run",
+    "pretest": "npm run build",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm test",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
+
