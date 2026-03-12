@@ -13,8 +13,17 @@ It is intentionally scoped to **state and workflow mutation**, not the full Ashb
 
 ## Install
 
+Package name: `ashby-cli`  
+Binary name: `ashby`
+
 ```bash
 npm install -g ashby-cli
+```
+
+If you do not want a global install, invoke the published package directly:
+
+```bash
+npx -y ashby-cli doctor --json
 ```
 
 Or from source:
@@ -40,6 +49,8 @@ ashby auth set --stdin
 ashby auth status
 ashby doctor
 ```
+
+If you are using `npx`, remember it will not load `.env.local` automatically. Export `ASHBY_API_KEY` first or source your env file in the shell.
 
 ## Commands
 

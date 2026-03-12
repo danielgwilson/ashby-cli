@@ -10,7 +10,19 @@ description: |
 
 Use this skill when the task touches Ashby candidates, applications, stages, or notes.
 
-`ashby` should be installed on `$PATH`. If it is missing, install it with `npm install -g ashby-cli` or run commands with `npx ashby-cli <args>`.
+Important naming detail:
+
+- npm package name: `ashby-cli`
+- CLI binary name: `ashby`
+
+Resolution order:
+
+1. If `ashby` is already on `$PATH`, use it directly.
+2. Otherwise run the published package explicitly with `npx -y ashby-cli <args>`.
+
+Do not guess alternate package names like `@danielgwilson/ashby-cli` or `npx ashby` unless those packages are explicitly published later.
+
+If the binary is missing, install it with `npm install -g ashby-cli`.
 
 Default stance:
 
@@ -46,8 +58,17 @@ If `ashby doctor --json` reports missing auth:
 
 - Best ephemeral path: `ASHBY_API_KEY=... ashby doctor --json`
 - Saved local config: `printf '%s' "$ASHBY_API_KEY" | ashby auth set --stdin`
+- If using `npx`, remember it does not load `.env.local` automatically. Export `ASHBY_API_KEY` first, or explicitly source your env file in the shell before invoking `npx -y ashby-cli ...`.
 
 Avoid pasting full keys into logs or chat.
+
+## Quick verification
+
+If you are unsure which invocation path works in the current shell:
+
+```bash
+command -v ashby >/dev/null 2>&1 && ashby doctor --json || npx -y ashby-cli doctor --json
+```
 
 ## Important constraints
 

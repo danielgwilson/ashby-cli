@@ -1,4 +1,4 @@
 version: 1
 display_name: Ashby CLI
 short_description: Official-API-first Ashby candidate and application operations
-default_prompt: Use the ashby CLI to inspect or update Ashby candidates, applications, stages, and notes via the official API.
+default_prompt: Use the ashby CLI to inspect or update Ashby candidates, applications, stages, and notes via the official API. The npm package is ashby-cli and the binary is ashby.
