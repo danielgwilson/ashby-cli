@@ -41,6 +41,14 @@ Default stance:
 - List applications: `ashby application list --job-id <job-id> --status Active --json`
 - List stages: `ashby stage list --interview-plan-id <plan-id> --json`
 
+For this repo's common Ashby triage flow, the default sequence is:
+
+1. `ashby doctor --json`
+2. `ashby whoami --json`
+3. `ashby candidate search ... --json`
+4. `ashby application list --job-id ... --json`
+5. `ashby stage list --interview-plan-id ... --json`
+
 ## Common mutations
 
 - Create a candidate:
@@ -59,6 +67,7 @@ If `ashby doctor --json` reports missing auth:
 - Best ephemeral path: `ASHBY_API_KEY=... ashby doctor --json`
 - Saved local config: `printf '%s' "$ASHBY_API_KEY" | ashby auth set --stdin`
 - If using `npx`, remember it does not load `.env.local` automatically. Export `ASHBY_API_KEY` first, or explicitly source your env file in the shell before invoking `npx -y ashby-cli ...`.
+- In this repo specifically, loading `.env.local` before `npx -y ashby-cli ...` is often the fastest fix.
 
 Avoid pasting full keys into logs or chat.
 
@@ -75,7 +84,17 @@ command -v ashby >/dev/null 2>&1 && ashby doctor --json || npx -y ashby-cli doct
 - This CLI covers candidate/application state well, but it does not replace the full Ashby UI.
 - Do not assume support for general outbound candidate email.
 - Do not assume support for self-serve scheduling links or Ashby automation triggers.
+- Do not assume the public FE job and the secret fast-track job share the same interview plan or stage IDs.
 - Before mutating candidate/application state, confirm ids and current stage.
+
+## Mutation checklist
+
+Before creating or moving anything:
+
+1. Confirm the candidate does not already exist.
+2. Confirm the correct job id.
+3. Confirm the correct interview plan and stage ids for that specific job.
+4. Only then create the candidate, add notes, create the application, or move the stage.
 
 ## Contract
 
