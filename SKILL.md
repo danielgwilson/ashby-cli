@@ -10,6 +10,8 @@ description: |
 
 Use this skill when the task touches Ashby candidates, applications, stages, or notes.
 
+`ashby` should be installed on `$PATH`. If it is missing, install it with `npm install -g ashby-cli` or run commands with `npx ashby-cli <args>`.
+
 Default stance:
 
 - Prefer the official API-backed `ashby` CLI, not browser automation.
