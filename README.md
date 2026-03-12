@@ -63,6 +63,7 @@ ashby whoami --json
 ```bash
 ashby candidate search --name "Jane Doe" --json
 ashby candidate search --email "jane@example.com" --json
+ashby candidate search --name "Jane Doe" --email "jane@example.com" --json
 ashby candidate get <candidate-id> --json
 ashby candidate create --name "Jane Doe" --email "jane@example.com" --linkedin-url "https://linkedin.com/in/jane" --json
 ashby note create --candidate-id <candidate-id> --note "Strong fast-track candidate" --json
@@ -97,4 +98,3 @@ ashby stage list --interview-plan-id <plan-id> --json
 - full Ashby UI automation
 
 See `docs/CONTRACT_V1.md` for the stable CLI contract.
-

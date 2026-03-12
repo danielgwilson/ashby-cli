@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { saveAndValidateApiKey, validateApiKey } from "./auth.js";
 import { AshbyApiClient, AshbyApiError } from "./ashby-api.js";
 import { clearConfig, readConfig, redactApiKey, resolveApiKey } from "./config.js";
+import { formatCandidateRow, validateCandidateSearchInput } from "./candidates.js";
 import { fail, makeError, ok, printJson } from "./output.js";
 
 type CommonJsonOptions = { json?: boolean };
@@ -41,8 +42,7 @@ function createClient(apiKey: string): AshbyApiClient {
 
 function printCandidatesHuman(items: any[]): void {
   for (const item of items) {
-    const email = item.primaryEmailAddress?.value || "";
-    console.log(`${item.id}\t${item.name}\t${email}`);
+    console.log(formatCandidateRow(item));
   }
 }
 
@@ -183,16 +183,27 @@ const candidate = program.command("candidate").description("Candidate operations
 candidate
   .command("search")
   .description("Search candidates by name or email")
-  .requiredOption("--name <name>", "Candidate name", undefined)
+  .option("--name <name>", "Candidate name")
   .option("--email <email>", "Candidate email")
   .option("--json", "Emit JSON output")
   .action(async (opts: { name: string; email?: string; json?: boolean }) => {
+    let input: { name?: string; email?: string };
+    try {
+      input = validateCandidateSearchInput({ name: opts.name, email: opts.email });
+    } catch (error: any) {
+      const err = makeError(error, { code: "VALIDATION", message: error?.message || "Invalid candidate search input." });
+      if (opts.json) printJson(fail(err));
+      else process.stderr.write(`${err.message}\n`);
+      process.exitCode = 2;
+      return;
+    }
+
     const apiKey = await requireApiKey(opts);
     if (!apiKey) return;
     await runAction(
       opts,
       async () => {
-        const results = (await createClient(apiKey).candidateSearch({ name: opts.name, email: opts.email })).results || [];
+        const results = (await createClient(apiKey).candidateSearch(input)).results || [];
         return { count: results.length, items: results };
       },
       (value) => printCandidatesHuman(value.items),
@@ -381,4 +392,3 @@ stage
   });
 
 program.parseAsync(process.argv);
-
