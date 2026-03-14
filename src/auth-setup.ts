@@ -7,6 +7,7 @@ export const RECOMMENDED_PERMISSIONS = [
   "Candidates: read + write",
   "Interviews: read + write",
   "Hiring Process: read",
+  "Offers: read + write",
   "API Keys: read",
 ];
 

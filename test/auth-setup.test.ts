@@ -8,6 +8,7 @@ describe("buildAuthSetupInstructions", () => {
     expect(value).toContain(ASHBY_API_KEYS_URL);
     expect(value).toContain("Jobs: read");
     expect(value).toContain("Candidates: read + write");
+    expect(value).toContain("Offers: read + write");
   });
 });
 
