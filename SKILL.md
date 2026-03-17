@@ -3,7 +3,7 @@ name: ashby
 description: |
   Use this skill whenever you need to inspect or update Ashby via the official API using the agent-first `ashby` CLI.
   Triggers include: candidate search, candidate lookup, Ashby application review, moving candidates between stages,
-  adding candidate notes, listing jobs or stages, or keeping an Ashby hiring pipeline current without using the UI.
+  adding candidate notes, listing jobs or stages, reconstructing candidate/application feed context, or keeping an Ashby hiring pipeline current without using the UI.
 ---
 
 # Ashby (agent-first CLI)
@@ -39,7 +39,12 @@ Default stance:
 - Search for a candidate: `ashby candidate search --name "Jane Doe" --json`
 - Or by email: `ashby candidate search --email "jane@example.com" --json`
 - Inspect one candidate: `ashby candidate get <candidate-id> --json`
+- List candidate notes: `ashby candidate notes --candidate-id <candidate-id> --json`
 - List applications: `ashby application list --job-id <job-id> --status Active --json`
+- List application history: `ashby application history --application-id <application-id> --json`
+- List application feedback: `ashby application feedback --application-id <application-id> --json`
+- Build a synthetic application feed: `ashby application feed --application-id <application-id> --json`
+- List interview schedules: `ashby interview schedules --application-id <application-id> --json`
 - List stages: `ashby stage list --interview-plan-id <plan-id> --json`
 
 For this repo's common Ashby triage flow, the default sequence is:

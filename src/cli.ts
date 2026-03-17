@@ -8,6 +8,7 @@ import { ASHBY_API_KEYS_URL, buildAuthSetupInstructions, openBrowser } from "./a
 import { AshbyApiClient, AshbyApiError } from "./ashby-api.js";
 import { clearConfig, readConfig, redactApiKey, resolveApiKey } from "./config.js";
 import { formatCandidateRow, validateCandidateSearchInput } from "./candidates.js";
+import { buildApplicationFeed, formatFeedItem } from "./feed.js";
 import { fail, makeError, ok, printJson } from "./output.js";
 
 type CommonJsonOptions = { json?: boolean };
@@ -59,6 +60,16 @@ function printApplicationsHuman(items: any[]): void {
 function printStagesHuman(items: any[]): void {
   for (const item of items) {
     console.log(`${item.id}\t${item.orderInInterviewPlan}\t${item.title}\t${item.type}`);
+  }
+}
+
+function printJsonHuman(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function printFeedHuman(items: Array<{ at: string; kind: string; title: string; detail?: string }>): void {
+  for (const item of items) {
+    console.log(formatFeedItem(item));
   }
 }
 
@@ -307,6 +318,30 @@ candidate
   });
 
 candidate
+  .command("notes")
+  .description("List notes for a candidate")
+  .requiredOption("--candidate-id <candidate-id>", "Candidate id")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { candidateId: string; cursor?: string; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const response = await createClient(apiKey).candidateListNotes(opts.candidateId, opts.cursor);
+        return {
+          count: (response.results || []).length,
+          items: response.results || [],
+          nextCursor: response.nextCursor,
+          moreDataAvailable: response.moreDataAvailable || false,
+        };
+      },
+      (value) => printJsonHuman(value.items),
+    );
+  });
+
+candidate
   .command("create")
   .description("Create a candidate")
   .requiredOption("--name <name>", "Candidate full name")
@@ -403,6 +438,95 @@ application
   });
 
 application
+  .command("history")
+  .description("List application stage/history entries")
+  .requiredOption("--application-id <application-id>", "Application id")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { applicationId: string; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const response = await createClient(apiKey).applicationListHistory(opts.applicationId);
+        return {
+          count: (response.results || []).length,
+          items: response.results || [],
+          moreDataAvailable: response.moreDataAvailable || false,
+          nextCursor: response.nextCursor,
+        };
+      },
+      (value) => printJsonHuman(value.items),
+    );
+  });
+
+application
+  .command("feedback")
+  .description("List application feedback")
+  .requiredOption("--application-id <application-id>", "Application id")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { applicationId: string; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const response = await createClient(apiKey).applicationFeedbackList(opts.applicationId);
+        return {
+          count: (response.results || []).length,
+          items: response.results || [],
+          moreDataAvailable: response.moreDataAvailable || false,
+          nextCursor: response.nextCursor,
+        };
+      },
+      (value) => printJsonHuman(value.items),
+    );
+  });
+
+application
+  .command("feed")
+  .description("Build a synthetic application feed from public API surfaces")
+  .requiredOption("--application-id <application-id>", "Application id")
+  .option("--no-notes", "Do not include candidate notes")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { applicationId: string; notes?: boolean; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const client = createClient(apiKey);
+        const app = await client.applicationInfo(opts.applicationId);
+        const candidateId = app.results?.candidate?.id as string | undefined;
+
+        const [historyResponse, feedbackResponse, scheduleResponse] = await Promise.all([
+          client.applicationListHistory(opts.applicationId),
+          client.applicationFeedbackList(opts.applicationId),
+          client.interviewScheduleList({ applicationId: opts.applicationId }),
+        ]);
+
+        const notesResponse =
+          opts.notes === false || !candidateId ? { results: [], moreDataAvailable: false } : await client.candidateListNotes(candidateId);
+
+        const feed = buildApplicationFeed({
+          history: historyResponse.results || app.results?.applicationHistory || [],
+          notes: notesResponse.results || [],
+          feedback: feedbackResponse.results || [],
+          schedules: scheduleResponse.results || [],
+        });
+
+        return {
+          applicationId: opts.applicationId,
+          candidateId: candidateId || null,
+          count: feed.length,
+          items: feed,
+        };
+      },
+      (value) => printFeedHuman(value.items),
+    );
+  });
+
+application
   .command("create")
   .description("Create an application for a candidate")
   .requiredOption("--candidate-id <candidate-id>", "Candidate id")
@@ -459,6 +583,7 @@ application
   });
 
 const stage = program.command("stage").description("Interview stage metadata");
+const interview = program.command("interview").description("Interview schedule and event operations");
 
 stage
   .command("list")
@@ -473,5 +598,71 @@ stage
       return { count: results.length, items: results };
     }, (value) => printStagesHuman(value.items));
   });
+
+interview
+  .command("schedules")
+  .description("List interview schedules")
+  .option("--application-id <application-id>", "Filter by application id")
+  .option("--interview-schedule-id <interview-schedule-id>", "Filter by interview schedule id")
+  .option("--interview-id <interview-id>", "Filter by interview id")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (opts: { applicationId?: string; interviewScheduleId?: string; interviewId?: string; cursor?: string; json?: boolean }) => {
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      await runAction(
+        opts,
+        async () => {
+          const response = await createClient(apiKey).interviewScheduleList({
+            applicationId: opts.applicationId,
+            interviewScheduleId: opts.interviewScheduleId,
+            interviewId: opts.interviewId,
+            cursor: opts.cursor,
+          });
+          return {
+            count: (response.results || []).length,
+            items: response.results || [],
+            moreDataAvailable: response.moreDataAvailable || false,
+            nextCursor: response.nextCursor,
+          };
+        },
+        (value) => printJsonHuman(value.items),
+      );
+    },
+  );
+
+interview
+  .command("events")
+  .description("List interview events")
+  .option("--application-id <application-id>", "Filter by application id")
+  .option("--interview-schedule-id <interview-schedule-id>", "Filter by interview schedule id")
+  .option("--interview-id <interview-id>", "Filter by interview id")
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (opts: { applicationId?: string; interviewScheduleId?: string; interviewId?: string; cursor?: string; json?: boolean }) => {
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      await runAction(
+        opts,
+        async () => {
+          const response = await createClient(apiKey).interviewEventList({
+            applicationId: opts.applicationId,
+            interviewScheduleId: opts.interviewScheduleId,
+            interviewId: opts.interviewId,
+            cursor: opts.cursor,
+          });
+          return {
+            count: (response.results || []).length,
+            items: response.results || [],
+            moreDataAvailable: response.moreDataAvailable || false,
+            nextCursor: response.nextCursor,
+          };
+        },
+        (value) => printJsonHuman(value.items),
+      );
+    },
+  );
 
 program.parseAsync(process.argv);

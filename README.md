@@ -7,6 +7,9 @@ This CLI is intended for operational workflows around:
 - candidate search and lookup
 - application creation and stage movement
 - candidate notes
+- application history and feedback
+- interview schedules
+- synthetic feed reconstruction from public API surfaces
 - hiring pipeline state
 
 It is intentionally scoped to **state and workflow mutation**, not the full Ashby UI surface.
@@ -99,6 +102,7 @@ ashby candidate search --name "Jane Doe" --json
 ashby candidate search --email "jane@example.com" --json
 ashby candidate search --name "Jane Doe" --email "jane@example.com" --json
 ashby candidate get <candidate-id> --json
+ashby candidate notes --candidate-id <candidate-id> --json
 ashby candidate create --name "Jane Doe" --email "jane@example.com" --linkedin-url "https://linkedin.com/in/jane" --json
 ashby note create --candidate-id <candidate-id> --note "Strong fast-track candidate" --json
 ```
@@ -108,6 +112,9 @@ ashby note create --candidate-id <candidate-id> --note "Strong fast-track candid
 ```bash
 ashby application list --job-id <job-id> --status Active --json
 ashby application get <application-id> --json
+ashby application history --application-id <application-id> --json
+ashby application feedback --application-id <application-id> --json
+ashby application feed --application-id <application-id> --json
 ashby application create --candidate-id <candidate-id> --job-id <job-id> --interview-stage-id <stage-id> --json
 ashby application stage-change --application-id <application-id> --interview-stage-id <stage-id> --json
 ```
@@ -116,6 +123,8 @@ ashby application stage-change --application-id <application-id> --interview-sta
 
 ```bash
 ashby stage list --interview-plan-id <plan-id> --json
+ashby interview schedules --application-id <application-id> --json
+ashby interview events --application-id <application-id> --json
 ```
 
 ## Design notes
@@ -130,5 +139,21 @@ ashby stage list --interview-plan-id <plan-id> --json
 - general outbound candidate email
 - candidate self-serve scheduling link generation
 - full Ashby UI automation
+
+## Feed coverage
+
+`ashby application feed` reconstructs a useful candidate/application timeline from public API data:
+
+- application history
+- candidate notes
+- feedback
+- interview schedules
+- nested interview events
+
+It does **not** provide full parity with the Ashby web UI feed. In particular, public API coverage still appears weak or absent for:
+
+- synced/sent email thread history
+- text thread history
+- the exact fully merged UI feed object
 
 See `docs/CONTRACT_V1.md` for the stable CLI contract.

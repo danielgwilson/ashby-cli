@@ -46,6 +46,13 @@ export type ApplicationListInput = {
   limit?: number;
 };
 
+export type InterviewListInput = {
+  applicationId?: string;
+  interviewScheduleId?: string;
+  interviewId?: string;
+  cursor?: string;
+};
+
 export type ApplicationStageChangeInput = {
   applicationId: string;
   interviewStageId: string;
@@ -145,6 +152,14 @@ export class AshbyApiClient {
     return this.request<any>("application.info", { applicationId });
   }
 
+  async applicationListHistory(applicationId: string) {
+    return this.request<any[]>("application.listHistory", { applicationId });
+  }
+
+  async applicationFeedbackList(applicationId: string) {
+    return this.request<any[]>("applicationFeedback.list", { applicationId });
+  }
+
   async applicationCreate(input: ApplicationCreateInput) {
     return this.request<any>("application.create", input as unknown as Record<string, unknown>);
   }
@@ -156,5 +171,20 @@ export class AshbyApiClient {
   async interviewStageList(interviewPlanId: string) {
     return this.request<any[]>("interviewStage.list", { interviewPlanId });
   }
-}
 
+  async candidateListNotes(candidateId: string, cursor?: string) {
+    return this.request<any[]>("candidate.listNotes", cursor ? { candidateId, cursor } : { candidateId });
+  }
+
+  async interviewScheduleList(input: InterviewListInput = {}) {
+    return this.request<any[]>("interviewSchedule.list", input as unknown as Record<string, unknown>);
+  }
+
+  async interviewEventList(input: InterviewListInput = {}) {
+    return this.request<any[]>("interviewEvent.list", input as unknown as Record<string, unknown>);
+  }
+
+  async interviewInfo(interviewId: string) {
+    return this.request<any>("interview.info", { interviewId });
+  }
+}
