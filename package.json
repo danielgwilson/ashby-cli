@@ -1,6 +1,6 @@
 {
   "name": "ashby-cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Agent-first CLI for Ashby's official API",
   "license": "MIT",
   "author": "Daniel G Wilson",
