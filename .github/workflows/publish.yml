@@ -25,5 +25,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm run lint:public-surface
       - run: npm test
       - run: npm publish --access public
