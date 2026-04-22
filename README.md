@@ -48,6 +48,7 @@ You can either:
 
 - set `ASHBY_API_KEY`
 - or store the key locally
+- or use [`authsome`](https://github.com/manojbajaj95/authsome) with the authsome skill, which handles runtime credential injection for agent workflows
 
 ```bash
 ashby auth setup
