@@ -25,4 +25,77 @@ describe("AshbyApiClient", () => {
 
     await expect(client.apiKeyInfo()).rejects.toBeInstanceOf(AshbyApiError);
   });
+
+  it("sends offer.create payload", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true, results: { id: "offer_123" } }), { status: 200 }));
+    const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    const result = await client.offerCreate({
+      offerProcessId: "proc_123",
+      offerFormId: "form_123",
+      offerForm: {
+        fieldSubmissions: [{ path: "startDate", value: "2026-04-01" }],
+      },
+    });
+
+    expect(result.results).toEqual({ id: "offer_123" });
+    const calls = fetchImpl.mock.calls as unknown as Array<[string, RequestInit]>;
+    const [url, init] = calls[0]!;
+    expect(url).toBe("https://api.ashbyhq.com/offer.create");
+    expect(JSON.parse(String(init.body))).toEqual({
+      offerProcessId: "proc_123",
+      offerFormId: "form_123",
+      offerForm: {
+        fieldSubmissions: [{ path: "startDate", value: "2026-04-01" }],
+      },
+    });
+  });
+
+  it("sends offer.list payload", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ success: true, results: [{ id: "offer_123" }], nextCursor: "cursor_2", moreDataAvailable: true }), {
+        status: 200,
+      }),
+    );
+    const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    const result = await client.offerList({
+      applicationId: "app_123",
+      offerStatus: ["WaitingOnCandidateResponse"],
+      acceptanceStatus: ["Pending"],
+      approvalStatus: ["WaitingOnApprovals"],
+      limit: 10,
+      cursor: "cursor_1",
+    });
+
+    expect(result.results).toEqual([{ id: "offer_123" }]);
+    expect(result.nextCursor).toBe("cursor_2");
+    expect(result.moreDataAvailable).toBe(true);
+    const calls = fetchImpl.mock.calls as unknown as Array<[string, RequestInit]>;
+    const [url, init] = calls[0]!;
+    expect(url).toBe("https://api.ashbyhq.com/offer.list");
+    expect(JSON.parse(String(init.body))).toEqual({
+      applicationId: "app_123",
+      offerStatus: ["WaitingOnCandidateResponse"],
+      acceptanceStatus: ["Pending"],
+      approvalStatus: ["WaitingOnApprovals"],
+      limit: 10,
+      cursor: "cursor_1",
+    });
+  });
+
+  it("sends offer.info payload", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true, results: { id: "offer_123" } }), { status: 200 }));
+    const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    const result = await client.offerInfo("offer_123");
+
+    expect(result.results).toEqual({ id: "offer_123" });
+    const calls = fetchImpl.mock.calls as unknown as Array<[string, RequestInit]>;
+    const [url, init] = calls[0]!;
+    expect(url).toBe("https://api.ashbyhq.com/offer.info");
+    expect(JSON.parse(String(init.body))).toEqual({
+      offerId: "offer_123",
+    });
+  });
 });

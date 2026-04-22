@@ -10,6 +10,7 @@ This CLI is intended for operational workflows around:
 - application history and feedback
 - interview schedules
 - synthetic feed reconstruction from public API surfaces
+- offer creation
 - hiring pipeline state
 
 It is intentionally scoped to **state and workflow mutation**, not the full Ashby UI surface.
@@ -125,6 +126,27 @@ ashby application stage-change --application-id <application-id> --interview-sta
 ashby stage list --interview-plan-id <plan-id> --json
 ashby interview schedules --application-id <application-id> --json
 ashby interview events --application-id <application-id> --json
+```
+
+### Offers
+
+```bash
+ashby offer list --json
+ashby offer list --application-id <application-id> --offer-status WaitingOnCandidateResponse --json
+ashby offer get <offer-id> --json
+
+ashby offer create \
+  --offer-process-id <offer-process-id> \
+  --offer-form-id <offer-form-id> \
+  --field-json '{"path":"startDate","value":"2026-04-01"}' \
+  --field-json '{"path":"salary","value":{"currencyCode":"USD","value":100000}}' \
+  --json
+
+ashby offer create \
+  --offer-process-id <offer-process-id> \
+  --offer-form-id <offer-form-id> \
+  --field-submissions-file ./offer-fields.json \
+  --json
 ```
 
 ## Design notes

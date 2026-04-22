@@ -67,6 +67,9 @@ Direct official API coverage:
 - `application.create`
 - `application.changeStage`
 - `interviewStage.list`
+- `offer.list`
+- `offer.info`
+- `offer.create`
 
 ## Command examples
 
@@ -127,3 +130,45 @@ Direct official API coverage:
 }
 ```
 
+### `ashby offer create --offer-process-id <id> --offer-form-id <id> --field-json '{"path":"startDate","value":"2026-04-01"}' --json`
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "offer-uuid"
+  }
+}
+```
+
+### `ashby offer list --json`
+
+```json
+{
+  "ok": true,
+  "data": {
+    "count": 1,
+    "items": [
+      {
+        "id": "offer-uuid",
+        "applicationId": "application-uuid",
+        "acceptanceStatus": "Pending"
+      }
+    ],
+    "nextCursor": "cursor-token",
+    "moreDataAvailable": true
+  }
+}
+```
+
+### `ashby offer get <id> --json`
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "offer-uuid",
+    "applicationId": "application-uuid"
+  }
+}
+```

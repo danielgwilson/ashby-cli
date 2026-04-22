@@ -9,6 +9,7 @@ import { AshbyApiClient, AshbyApiError } from "./ashby-api.js";
 import { clearConfig, readConfig, redactApiKey, resolveApiKey } from "./config.js";
 import { formatCandidateRow, validateCandidateSearchInput } from "./candidates.js";
 import { buildApplicationFeed, formatFeedItem } from "./feed.js";
+import { parseFieldSubmissionJson, parseFieldSubmissionsJson, readFieldSubmissionsFile } from "./offers.js";
 import { fail, makeError, ok, printJson } from "./output.js";
 
 type CommonJsonOptions = { json?: boolean };
@@ -71,6 +72,42 @@ function printFeedHuman(items: Array<{ at: string; kind: string; title: string; 
   for (const item of items) {
     console.log(formatFeedItem(item));
   }
+}
+
+function printOffersHuman(items: any[]): void {
+  for (const item of items) {
+    console.log(
+      `${item.id || ""}\t${item.applicationId || ""}\t${item.offerStatus || ""}\t${item.acceptanceStatus || ""}\t${item.latestVersion?.approvalStatus || ""}`,
+    );
+  }
+}
+
+async function resolveOfferFieldSubmissions(opts: {
+  fieldJson?: string[];
+  fieldSubmissionsJson?: string;
+  fieldSubmissionsFile?: string;
+}): Promise<Array<{ path: string; value: unknown }>> {
+  const submissions: Array<{ path: string; value: unknown }> = [];
+
+  for (const value of opts.fieldJson || []) {
+    submissions.push(parseFieldSubmissionJson(value));
+  }
+
+  if (opts.fieldSubmissionsJson) {
+    submissions.push(...parseFieldSubmissionsJson(opts.fieldSubmissionsJson));
+  }
+
+  if (opts.fieldSubmissionsFile) {
+    submissions.push(...(await readFieldSubmissionsFile(opts.fieldSubmissionsFile)));
+  }
+
+  if (submissions.length === 0) {
+    throw new Error(
+      "Provide offer fields with --field-json, --field-submissions-json, or --field-submissions-file.",
+    );
+  }
+
+  return submissions;
 }
 
 async function runAction<T>(
@@ -401,7 +438,7 @@ application
   .description("List applications")
   .option("--job-id <job-id>", "Filter by job id")
   .option("--status <status>", "Active | Archived | Hired | Lead | All", "All")
-  .option("--limit <limit>", "Max results", (value) => Number(value), 25)
+  .option("--limit <limit>", "Max results", (value: string) => Number(value), 25)
   .option("--cursor <cursor>", "Pagination cursor")
   .option("--json", "Emit JSON output")
   .action(
@@ -632,6 +669,66 @@ interview
     },
   );
 
+const offer = program.command("offer").description("Offer operations");
+
+offer
+  .command("list")
+  .description("List offers")
+  .option("--application-id <application-id>", "Filter by application id")
+  .option(
+    "--offer-status <status>",
+    "Filter by offer status, repeatable",
+    (value: string, previous: string[] = []) => [...previous, value],
+  )
+  .option(
+    "--acceptance-status <status>",
+    "Filter by acceptance status, repeatable",
+    (value: string, previous: string[] = []) => [...previous, value],
+  )
+  .option(
+    "--approval-status <status>",
+    "Filter by approval status, repeatable",
+    (value: string, previous: string[] = []) => [...previous, value],
+  )
+  .option("--limit <limit>", "Max results", (value: string) => Number(value), 25)
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (opts: {
+      applicationId?: string;
+      offerStatus?: string[];
+      acceptanceStatus?: string[];
+      approvalStatus?: string[];
+      limit?: number;
+      cursor?: string;
+      json?: boolean;
+    }) => {
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      await runAction(
+        opts,
+        async () => {
+          const response = await createClient(apiKey).offerList({
+            applicationId: opts.applicationId,
+            offerStatus: opts.offerStatus as any,
+            acceptanceStatus: opts.acceptanceStatus as any,
+            approvalStatus: opts.approvalStatus as any,
+            limit: opts.limit,
+            cursor: opts.cursor,
+          });
+          const results = response.results || [];
+          return {
+            count: results.length,
+            items: results,
+            nextCursor: response.nextCursor,
+            moreDataAvailable: response.moreDataAvailable,
+          };
+        },
+        (value) => printOffersHuman(value.items),
+      );
+    },
+  );
+
 interview
   .command("events")
   .description("List interview events")
@@ -661,6 +758,71 @@ interview
           };
         },
         (value) => printJsonHuman(value.items),
+      );
+    },
+  );
+
+offer
+  .command("get")
+  .description("Fetch one offer by id")
+  .argument("<offer-id>", "Offer id")
+  .option("--json", "Emit JSON output")
+  .action(async (offerId: string, opts: CommonJsonOptions) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(opts, async () => (await createClient(apiKey).offerInfo(offerId)).results, (value) => {
+      console.log(JSON.stringify(value, null, 2));
+    });
+  });
+
+offer
+  .command("create")
+  .description("Create an offer")
+  .requiredOption("--offer-process-id <offer-process-id>", "Offer process id")
+  .requiredOption("--offer-form-id <offer-form-id>", "Offer form id")
+  .option(
+    "--field-json <json>",
+    "Field submission JSON object, repeatable. Example: --field-json '{\"path\":\"salary\",\"value\":{\"currencyCode\":\"USD\",\"value\":100000}}'",
+    (value: string, previous: string[] = []) => [...previous, value],
+  )
+  .option("--field-submissions-json <json>", "JSON array of field submissions")
+  .option("--field-submissions-file <path>", "Path to a JSON file containing a field submissions array")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (opts: {
+      offerProcessId: string;
+      offerFormId: string;
+      fieldJson?: string[];
+      fieldSubmissionsJson?: string;
+      fieldSubmissionsFile?: string;
+      json?: boolean;
+    }) => {
+      let fieldSubmissions: Array<{ path: string; value: unknown }>;
+      try {
+        fieldSubmissions = await resolveOfferFieldSubmissions(opts);
+      } catch (error: any) {
+        const err = makeError(error, { code: "VALIDATION", message: error?.message || "Invalid offer form input." });
+        if (opts.json) printJson(fail(err));
+        else process.stderr.write(`${err.message}\n`);
+        process.exitCode = 2;
+        return;
+      }
+
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      await runAction(
+        opts,
+        async () =>
+          (
+            await createClient(apiKey).offerCreate({
+              offerProcessId: opts.offerProcessId,
+              offerFormId: opts.offerFormId,
+              offerForm: { fieldSubmissions },
+            })
+          ).results,
+        (value) => {
+          console.log(`${value?.id || ""}\t${value?.applicationId || ""}`);
+        },
       );
     },
   );

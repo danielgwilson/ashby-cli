@@ -59,6 +59,47 @@ export type ApplicationStageChangeInput = {
   archiveReasonId?: string;
 };
 
+export type OfferFieldSubmission = {
+  path: string;
+  value: unknown;
+};
+
+export type OfferCreateInput = {
+  offerProcessId: string;
+  offerFormId: string;
+  offerForm: {
+    fieldSubmissions: OfferFieldSubmission[];
+  };
+};
+
+export type OfferStatus =
+  | "WaitingOnApprovalStart"
+  | "WaitingOnOfferApproval"
+  | "WaitingOnApprovalDefinition"
+  | "WaitingOnCandidateResponse"
+  | "CandidateRejected"
+  | "CandidateAccepted"
+  | "OfferCancelled";
+
+export type OfferAcceptanceStatus =
+  | "Accepted"
+  | "Declined"
+  | "Pending"
+  | "Created"
+  | "Cancelled"
+  | "WaitingOnResponse";
+
+export type OfferApprovalStatus = "Approved" | "WaitingOnApprovals" | "Declined";
+
+export type OfferListInput = {
+  cursor?: string;
+  limit?: number;
+  offerStatus?: OfferStatus[];
+  acceptanceStatus?: OfferAcceptanceStatus[];
+  applicationId?: string;
+  approvalStatus?: OfferApprovalStatus[];
+};
+
 export type AshbyApiClientOptions = {
   apiKey: string;
   userAgent?: string;
@@ -186,5 +227,17 @@ export class AshbyApiClient {
 
   async interviewInfo(interviewId: string) {
     return this.request<any>("interview.info", { interviewId });
+  }
+
+  async offerCreate(input: OfferCreateInput) {
+    return this.request<any>("offer.create", input as unknown as Record<string, unknown>);
+  }
+
+  async offerList(input: OfferListInput = {}) {
+    return this.request<any[]>("offer.list", input as unknown as Record<string, unknown>);
+  }
+
+  async offerInfo(offerId: string) {
+    return this.request<any>("offer.info", { offerId });
   }
 }
