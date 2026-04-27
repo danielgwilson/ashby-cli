@@ -77,6 +77,7 @@ If `ashby doctor --json` reports missing auth:
 - Saved local config: `printf '%s' "$ASHBY_API_KEY" | ashby auth set --stdin`
 - If using `npx`, remember it does not load `.env.local` automatically. Export `ASHBY_API_KEY` first, or explicitly source your env file in the shell before invoking `npx -y ashby-cli ...`.
 - In this repo specifically, loading `.env.local` before `npx -y ashby-cli ...` is often the fastest fix.
+- Optional: [authsome](https://github.com/manojbajaj95/authsome) with the authsome skill handles credential injection for agent runs; you do not need to manually export `ASHBY_API_KEY` on that path.
 
 `ashby auth setup` opens `https://app.ashbyhq.com/admin/api/keys`, tells the user which permissions to enable, and then saves + validates the pasted key.
 
