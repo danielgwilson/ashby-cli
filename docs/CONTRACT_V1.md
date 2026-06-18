@@ -61,12 +61,29 @@ Direct official API coverage:
 - `candidate.search`
 - `candidate.info`
 - `candidate.create`
+- `candidate.update`
 - `candidate.createNote`
+- `candidate.listNotes`
 - `application.list`
 - `application.info`
+- `application.listHistory`
+- `applicationFeedback.list`
 - `application.create`
 - `application.changeStage`
 - `interviewStage.list`
+- `interviewSchedule.list`
+- `interviewEvent.list`
+- `job.list`
+- `job.info`
+- `interviewPlan.list`
+- `source.list`
+
+Derived official-API helpers:
+
+- `candidate.upsert`: uses `candidate.search` by email, then `candidate.update` or `candidate.create`
+- `note.ensure`: uses `candidate.listNotes`, then `candidate.createNote` only when the marker is absent
+- `job.search`: uses `job.list`, then filters by title substring locally
+- `stage list --job-id`: uses `job.info`, then `interviewStage.list` for the job's `defaultInterviewPlanId`
 
 ## Command examples
 
@@ -127,3 +144,44 @@ Direct official API coverage:
 }
 ```
 
+### `ashby candidate upsert --name "Jane Doe" --email "jane@example.com" --json`
+
+```json
+{
+  "ok": true,
+  "data": {
+    "action": "updated",
+    "candidate": {
+      "id": "uuid",
+      "name": "Jane Doe"
+    }
+  }
+}
+```
+
+### `ashby note ensure --candidate-id <id> --marker "AHH 2026" --note-file ./note.txt --json`
+
+```json
+{
+  "ok": true,
+  "data": {
+    "action": "skipped",
+    "marker": "AHH 2026",
+    "candidateId": "uuid"
+  }
+}
+```
+
+### `ashby stage list --job-id <job-id> --json`
+
+```json
+{
+  "ok": true,
+  "data": {
+    "count": 3,
+    "items": [],
+    "interviewPlanId": "uuid",
+    "jobId": "uuid"
+  }
+}
+```

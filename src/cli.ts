@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
 import { stdin as input, stderr as output } from "node:process";
@@ -27,6 +28,20 @@ async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks).toString("utf8");
+}
+
+async function readTextOption(opts: { text?: string; file?: string }, label: string): Promise<string> {
+  if (opts.text && opts.file) {
+    throw new Error(`Pass either --${label} or --${label}-file, not both.`);
+  }
+  if (opts.file) return readFile(opts.file, "utf8");
+  if (opts.text) return opts.text;
+  throw new Error(`Pass --${label} or --${label}-file.`);
+}
+
+function splitCsv(value?: string): string[] | undefined {
+  const items = value?.split(",").map((item) => item.trim()).filter(Boolean);
+  return items && items.length ? items : undefined;
 }
 
 async function requireApiKey({ json }: CommonJsonOptions): Promise<string> {
@@ -60,6 +75,18 @@ function printApplicationsHuman(items: any[]): void {
 function printStagesHuman(items: any[]): void {
   for (const item of items) {
     console.log(`${item.id}\t${item.orderInInterviewPlan}\t${item.title}\t${item.type}`);
+  }
+}
+
+function printJobsHuman(items: any[]): void {
+  for (const item of items) {
+    console.log(`${item.id}\t${item.title || ""}\t${item.status || ""}\t${item.defaultInterviewPlanId || ""}`);
+  }
+}
+
+function printSourcesHuman(items: any[]): void {
+  for (const item of items) {
+    console.log(`${item.id}\t${item.title || item.name || ""}${item.isArchived ? "\tarchived" : ""}`);
   }
 }
 
@@ -378,20 +405,208 @@ candidate
     },
   );
 
+candidate
+  .command("update")
+  .description("Update an existing candidate")
+  .requiredOption("--candidate-id <candidate-id>", "Candidate id")
+  .option("--name <name>", "Candidate full name")
+  .option("--email <email>", "Primary email")
+  .option("--phone-number <phone>", "Phone number")
+  .option("--linkedin-url <url>", "LinkedIn URL")
+  .option("--github-url <url>", "GitHub URL")
+  .option("--website-url <url>", "Website URL")
+  .option("--alternate-email <email>", "Alternate email address to add")
+  .option("--source-id <source-id>", "Candidate source id")
+  .option("--credited-to-user-id <user-id>", "Credited user id")
+  .option("--location-city <city>", "Candidate location city")
+  .option("--location-region <region>", "Candidate location region/state")
+  .option("--location-country <country>", "Candidate location country")
+  .option("--send-notifications", "Notify subscribed users")
+  .option("--suppress-notifications", "Do not notify subscribed users")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (
+      opts: {
+        candidateId: string;
+        name?: string;
+        email?: string;
+        phoneNumber?: string;
+        linkedinUrl?: string;
+        githubUrl?: string;
+        websiteUrl?: string;
+        alternateEmail?: string;
+        sourceId?: string;
+        creditedToUserId?: string;
+        locationCity?: string;
+        locationRegion?: string;
+        locationCountry?: string;
+        sendNotifications?: boolean;
+        suppressNotifications?: boolean;
+        json?: boolean;
+      },
+    ) => {
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      const location =
+        opts.locationCity || opts.locationRegion || opts.locationCountry
+          ? { city: opts.locationCity, region: opts.locationRegion, country: opts.locationCountry }
+          : undefined;
+      await runAction(opts, async () => (await createClient(apiKey).candidateUpdate({
+        candidateId: opts.candidateId,
+        name: opts.name,
+        email: opts.email,
+        phoneNumber: opts.phoneNumber,
+        linkedInUrl: opts.linkedinUrl,
+        githubUrl: opts.githubUrl,
+        websiteUrl: opts.websiteUrl,
+        alternateEmail: opts.alternateEmail,
+        sourceId: opts.sourceId,
+        creditedToUserId: opts.creditedToUserId,
+        sendNotifications: opts.suppressNotifications ? false : opts.sendNotifications,
+        location,
+      })).results, (value) => {
+        console.log(`${value?.id || opts.candidateId}\t${value?.name || ""}`);
+      });
+    },
+  );
+
+candidate
+  .command("upsert")
+  .description("Create or update one candidate by email")
+  .requiredOption("--name <name>", "Candidate full name")
+  .requiredOption("--email <email>", "Primary email used for lookup")
+  .option("--phone-number <phone>", "Phone number")
+  .option("--linkedin-url <url>", "LinkedIn URL")
+  .option("--github-url <url>", "GitHub URL")
+  .option("--website-url <url>", "Website URL")
+  .option("--source-id <source-id>", "Candidate source id")
+  .option("--credited-to-user-id <user-id>", "Credited user id")
+  .option("--send-notifications", "Notify subscribed users when updating")
+  .option("--suppress-notifications", "Do not notify subscribed users when updating")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (
+      opts: {
+        name: string;
+        email: string;
+        phoneNumber?: string;
+        linkedinUrl?: string;
+        githubUrl?: string;
+        websiteUrl?: string;
+        sourceId?: string;
+        creditedToUserId?: string;
+        sendNotifications?: boolean;
+        suppressNotifications?: boolean;
+        json?: boolean;
+      },
+    ) => {
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      await runAction(
+        opts,
+        async () => {
+          const client = createClient(apiKey);
+          const matches = (await client.candidateSearch({ email: opts.email })).results || [];
+          if (matches.length > 1) {
+            throw new Error(`Candidate email lookup returned ${matches.length} matches; update manually.`);
+          }
+          if (matches.length === 1) {
+            const candidateId = matches[0]?.id as string;
+            const updated = (await client.candidateUpdate({
+              candidateId,
+              name: opts.name,
+              email: opts.email,
+              phoneNumber: opts.phoneNumber,
+              linkedInUrl: opts.linkedinUrl,
+              githubUrl: opts.githubUrl,
+              websiteUrl: opts.websiteUrl,
+              sourceId: opts.sourceId,
+              creditedToUserId: opts.creditedToUserId,
+              sendNotifications: opts.suppressNotifications ? false : opts.sendNotifications,
+            })).results;
+            return { action: "updated", candidate: updated };
+          }
+          const created = (await client.candidateCreate({
+            name: opts.name,
+            email: opts.email,
+            phoneNumber: opts.phoneNumber,
+            linkedInUrl: opts.linkedinUrl,
+            githubUrl: opts.githubUrl,
+            website: opts.websiteUrl,
+            sourceId: opts.sourceId,
+            creditedToUserId: opts.creditedToUserId,
+          })).results;
+          return { action: "created", candidate: created };
+        },
+        (value) => {
+          console.log(`${value.action}\t${value.candidate?.id || ""}\t${value.candidate?.name || opts.name}`);
+        },
+      );
+    },
+  );
+
 const note = program.command("note").description("Candidate notes");
 
 note
   .command("create")
   .description("Add a note to a candidate")
   .requiredOption("--candidate-id <candidate-id>", "Candidate id")
-  .requiredOption("--note <note>", "Note content")
+  .option("--note <note>", "Note content")
+  .option("--note-file <path>", "Read note content from a file")
   .option("--json", "Emit JSON output")
-  .action(async (opts: { candidateId: string; note: string; json?: boolean }) => {
+  .action(async (opts: { candidateId: string; note?: string; noteFile?: string; json?: boolean }) => {
     const apiKey = await requireApiKey(opts);
     if (!apiKey) return;
-    await runAction(opts, async () => (await createClient(apiKey).candidateCreateNote(opts.candidateId, opts.note)).results, (value) => {
+    let noteText = "";
+    try {
+      noteText = await readTextOption({ text: opts.note, file: opts.noteFile }, "note");
+    } catch (error: any) {
+      const err = makeError(error, { code: "VALIDATION", message: error?.message || "Invalid note input." });
+      if (opts.json) printJson(fail(err));
+      else process.stderr.write(`${err.message}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    await runAction(opts, async () => (await createClient(apiKey).candidateCreateNote(opts.candidateId, noteText)).results, (value) => {
       console.log(JSON.stringify(value, null, 2));
     });
+  });
+
+note
+  .command("ensure")
+  .description("Add a candidate note only when no existing note contains the marker")
+  .requiredOption("--candidate-id <candidate-id>", "Candidate id")
+  .requiredOption("--marker <marker>", "Idempotency marker to search for in existing notes")
+  .option("--note <note>", "Note content")
+  .option("--note-file <path>", "Read note content from a file")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { candidateId: string; marker: string; note?: string; noteFile?: string; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    let noteText = "";
+    try {
+      noteText = await readTextOption({ text: opts.note, file: opts.noteFile }, "note");
+    } catch (error: any) {
+      const err = makeError(error, { code: "VALIDATION", message: error?.message || "Invalid note input." });
+      if (opts.json) printJson(fail(err));
+      else process.stderr.write(`${err.message}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    await runAction(
+      opts,
+      async () => {
+        const client = createClient(apiKey);
+        const notes = (await client.candidateListNotes(opts.candidateId)).results || [];
+        const exists = notes.some((note) => String(note.note || note.content || note.text || "").includes(opts.marker));
+        if (exists) return { action: "skipped", marker: opts.marker, candidateId: opts.candidateId };
+        const created = (await client.candidateCreateNote(opts.candidateId, noteText)).results;
+        return { action: "created", marker: opts.marker, candidateId: opts.candidateId, note: created };
+      },
+      (value) => {
+        console.log(`${value.action}\t${value.candidateId}\t${value.marker}`);
+      },
+    );
   });
 
 const application = program.command("application").description("Application operations");
@@ -582,21 +797,172 @@ application
     });
   });
 
+const job = program.command("job").description("Job metadata");
+
+job
+  .command("list")
+  .description("List jobs")
+  .option("--status <statuses>", "Comma-separated statuses, e.g. Open,Draft,Closed")
+  .option("--limit <limit>", "Max results", (value) => Number(value), 100)
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--include-unpublished-job-postings-ids", "Include unpublished job posting ids")
+  .option("--expand <expand>", "Comma-separated expand values")
+  .option("--json", "Emit JSON output")
+  .action(
+    async (
+      opts: {
+        status?: string;
+        limit?: number;
+        cursor?: string;
+        includeUnpublishedJobPostingsIds?: boolean;
+        expand?: string;
+        json?: boolean;
+      },
+    ) => {
+      const apiKey = await requireApiKey(opts);
+      if (!apiKey) return;
+      await runAction(
+        opts,
+        async () => {
+          const response = await createClient(apiKey).jobList({
+            status: splitCsv(opts.status),
+            limit: opts.limit,
+            cursor: opts.cursor,
+            includeUnpublishedJobPostingsIds: opts.includeUnpublishedJobPostingsIds,
+            expand: splitCsv(opts.expand),
+          });
+          return {
+            count: (response.results || []).length,
+            items: response.results || [],
+            nextCursor: response.nextCursor,
+            moreDataAvailable: response.moreDataAvailable || false,
+          };
+        },
+        (value) => printJobsHuman(value.items),
+      );
+    },
+  );
+
+job
+  .command("get")
+  .description("Fetch one job by id")
+  .argument("<job-id>", "Job id")
+  .option("--include-unpublished-job-postings-ids", "Include unpublished job posting ids")
+  .option("--expand <expand>", "Comma-separated expand values")
+  .option("--json", "Emit JSON output")
+  .action(async (jobId: string, opts: { includeUnpublishedJobPostingsIds?: boolean; expand?: string; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(opts, async () => (await createClient(apiKey).jobInfo({
+      id: jobId,
+      includeUnpublishedJobPostingsIds: opts.includeUnpublishedJobPostingsIds,
+      expand: splitCsv(opts.expand),
+    })).results, (value) => {
+      console.log(JSON.stringify(value, null, 2));
+    });
+  });
+
+job
+  .command("search")
+  .description("Search jobs by title using job.list results")
+  .requiredOption("--title <title>", "Title substring")
+  .option("--status <statuses>", "Comma-separated statuses, e.g. Open,Draft,Closed")
+  .option("--limit <limit>", "Max results to fetch before filtering", (value) => Number(value), 100)
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { title: string; status?: string; limit?: number; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const results = (await createClient(apiKey).jobList({
+          status: splitCsv(opts.status),
+          limit: opts.limit,
+        })).results || [];
+        const needle = opts.title.toLowerCase();
+        const items = results.filter((item) => String(item.title || "").toLowerCase().includes(needle));
+        return { count: items.length, items, derivedFrom: "job.list" };
+      },
+      (value) => printJobsHuman(value.items),
+    );
+  });
+
 const stage = program.command("stage").description("Interview stage metadata");
 const interview = program.command("interview").description("Interview schedule and event operations");
+const interviewPlan = program.command("interview-plan").description("Interview plan metadata");
+const source = program.command("source").description("Candidate/application source metadata");
 
 stage
   .command("list")
-  .description("List stages for an interview plan")
-  .requiredOption("--interview-plan-id <interview-plan-id>", "Interview plan id")
+  .description("List stages for an interview plan or a job's default interview plan")
+  .option("--interview-plan-id <interview-plan-id>", "Interview plan id")
+  .option("--job-id <job-id>", "Resolve the job's defaultInterviewPlanId first")
   .option("--json", "Emit JSON output")
-  .action(async (opts: { interviewPlanId: string; json?: boolean }) => {
+  .action(async (opts: { interviewPlanId?: string; jobId?: string; json?: boolean }) => {
+    if ((opts.interviewPlanId ? 1 : 0) + (opts.jobId ? 1 : 0) !== 1) {
+      const err = makeError(null, { code: "VALIDATION", message: "Pass exactly one of --interview-plan-id or --job-id." });
+      if (opts.json) printJson(fail(err));
+      else process.stderr.write(`${err.message}\n`);
+      process.exitCode = 2;
+      return;
+    }
     const apiKey = await requireApiKey(opts);
     if (!apiKey) return;
     await runAction(opts, async () => {
-      const results = (await createClient(apiKey).interviewStageList(opts.interviewPlanId)).results || [];
-      return { count: results.length, items: results };
+      const client = createClient(apiKey);
+      const jobInfo = opts.jobId ? (await client.jobInfo({ id: opts.jobId })).results : null;
+      const interviewPlanId = opts.interviewPlanId || jobInfo?.defaultInterviewPlanId;
+      if (!interviewPlanId) throw new Error(`Could not resolve interview plan for job ${opts.jobId}.`);
+      const results = (await client.interviewStageList(interviewPlanId)).results || [];
+      return { count: results.length, items: results, interviewPlanId, jobId: opts.jobId || null };
     }, (value) => printStagesHuman(value.items));
+  });
+
+interviewPlan
+  .command("list")
+  .description("List interview plans")
+  .option("--include-archived", "Include archived interview plans")
+  .option("--limit <limit>", "Max results", (value) => Number(value), 100)
+  .option("--cursor <cursor>", "Pagination cursor")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { includeArchived?: boolean; limit?: number; cursor?: string; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const response = await createClient(apiKey).interviewPlanList({
+          includeArchived: opts.includeArchived,
+          limit: opts.limit,
+          cursor: opts.cursor,
+        });
+        return {
+          count: (response.results || []).length,
+          items: response.results || [],
+          nextCursor: response.nextCursor,
+          moreDataAvailable: response.moreDataAvailable || false,
+        };
+      },
+      (value) => printJsonHuman(value.items),
+    );
+  });
+
+source
+  .command("list")
+  .description("List candidate/application sources")
+  .option("--include-archived", "Include archived sources")
+  .option("--json", "Emit JSON output")
+  .action(async (opts: { includeArchived?: boolean; json?: boolean }) => {
+    const apiKey = await requireApiKey(opts);
+    if (!apiKey) return;
+    await runAction(
+      opts,
+      async () => {
+        const results = (await createClient(apiKey).sourceList(Boolean(opts.includeArchived))).results || [];
+        return { count: results.length, items: results };
+      },
+      (value) => printSourcesHuman(value.items),
+    );
   });
 
 interview

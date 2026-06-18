@@ -25,4 +25,49 @@ describe("AshbyApiClient", () => {
 
     await expect(client.apiKeyInfo()).rejects.toBeInstanceOf(AshbyApiError);
   });
+
+  it("updates candidates through candidate.update", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true, results: { id: "cand_123" } }), { status: 200 }));
+    const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await client.candidateUpdate({
+      candidateId: "cand_123",
+      phoneNumber: "+14155550123",
+      linkedInUrl: "https://linkedin.com/in/jane",
+      githubUrl: "https://github.com/jane",
+      websiteUrl: "https://jane.dev",
+      sendNotifications: false,
+    });
+
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.ashbyhq.com/candidate.update");
+    expect(JSON.parse(init.body as string)).toEqual({
+      candidateId: "cand_123",
+      phoneNumber: "+14155550123",
+      linkedInUrl: "https://linkedin.com/in/jane",
+      githubUrl: "https://github.com/jane",
+      websiteUrl: "https://jane.dev",
+      sendNotifications: false,
+    });
+  });
+
+  it("maps discovery helpers to official endpoints", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true, results: [] }), { status: 200 }));
+    const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await client.jobList({ status: ["Open"], limit: 50 });
+    await client.jobInfo({ id: "job_123" });
+    await client.interviewPlanList({ includeArchived: true });
+    await client.sourceList(true);
+
+    const calls = fetchImpl.mock.calls as unknown as Array<[string, RequestInit]>;
+    expect(calls.map(([url]) => url)).toEqual([
+      "https://api.ashbyhq.com/job.list",
+      "https://api.ashbyhq.com/job.info",
+      "https://api.ashbyhq.com/interviewPlan.list",
+      "https://api.ashbyhq.com/source.list",
+    ]);
+    expect(JSON.parse(calls[0]![1].body as string)).toEqual({ status: ["Open"], limit: 50 });
+    expect(JSON.parse(calls[3]![1].body as string)).toEqual({ includeArchived: true });
+  });
 });

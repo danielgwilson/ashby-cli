@@ -1,4 +1,15 @@
-dist
-node_modules
+dist/
+node_modules/
+*.tgz
 .DS_Store
 
+# Local recon / auth artifacts
+.firecrawl/
+*.har
+*.har.gz
+*.trace
+*.trace.json
+storage-state.json
+cookies.txt
+cookies.json
+*.session.json

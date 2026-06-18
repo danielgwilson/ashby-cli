@@ -40,27 +40,40 @@ Default stance:
 - Or by email: `ashby candidate search --email "jane@example.com" --json`
 - Inspect one candidate: `ashby candidate get <candidate-id> --json`
 - List candidate notes: `ashby candidate notes --candidate-id <candidate-id> --json`
+- Update candidate contact/social fields: `ashby candidate update --candidate-id <candidate-id> --github-url "https://github.com/jane" --suppress-notifications --json`
+- Upsert one candidate by email: `ashby candidate upsert --name "Jane Doe" --email "jane@example.com" --json`
+- Add an idempotent note: `ashby note ensure --candidate-id <candidate-id> --marker "unique marker" --note-file ./note.txt --json`
+- Discover jobs: `ashby job list --status Open,Draft --json`
+- Resolve stages for a job: `ashby stage list --job-id <job-id> --json`
 - List applications: `ashby application list --job-id <job-id> --status Active --json`
 - List application history: `ashby application history --application-id <application-id> --json`
 - List application feedback: `ashby application feedback --application-id <application-id> --json`
 - Build a synthetic application feed: `ashby application feed --application-id <application-id> --json`
 - List interview schedules: `ashby interview schedules --application-id <application-id> --json`
 - List stages: `ashby stage list --interview-plan-id <plan-id> --json`
+- List sources: `ashby source list --json`
 
 For this repo's common Ashby triage flow, the default sequence is:
 
 1. `ashby doctor --json`
 2. `ashby whoami --json`
 3. `ashby candidate search ... --json`
-4. `ashby application list --job-id ... --json`
-5. `ashby stage list --interview-plan-id ... --json`
+4. `ashby job list --status Open,Draft --json`
+5. `ashby stage list --job-id ... --json`
+6. `ashby application list --job-id ... --json`
 
 ## Common mutations
 
 - Create a candidate:
   - `ashby candidate create --name "Jane Doe" --email "jane@example.com" --json`
+- Update a candidate:
+  - `ashby candidate update --candidate-id <candidate-id> --linkedin-url "https://linkedin.com/in/jane" --suppress-notifications --json`
+- Upsert a candidate by email:
+  - `ashby candidate upsert --name "Jane Doe" --email "jane@example.com" --github-url "https://github.com/jane" --json`
 - Add a note:
   - `ashby note create --candidate-id <candidate-id> --note "Strong fast-track candidate" --json`
+- Add a note idempotently:
+  - `ashby note ensure --candidate-id <candidate-id> --marker "AHH 2026" --note-file ./note.txt --json`
 - Create an application:
   - `ashby application create --candidate-id <candidate-id> --job-id <job-id> --interview-stage-id <stage-id> --json`
 - Move an application to a new stage:

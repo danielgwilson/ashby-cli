@@ -30,6 +30,25 @@ export type CandidateCreateInput = {
   };
 };
 
+export type CandidateUpdateInput = {
+  candidateId: string;
+  name?: string;
+  email?: string;
+  phoneNumber?: string;
+  linkedInUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  alternateEmail?: string;
+  sourceId?: string;
+  creditedToUserId?: string;
+  sendNotifications?: boolean;
+  location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+  };
+};
+
 export type ApplicationCreateInput = {
   candidateId: string;
   jobId: string;
@@ -51,6 +70,26 @@ export type InterviewListInput = {
   interviewScheduleId?: string;
   interviewId?: string;
   cursor?: string;
+};
+
+export type JobListInput = {
+  status?: string[];
+  cursor?: string;
+  limit?: number;
+  includeUnpublishedJobPostingsIds?: boolean;
+  expand?: string[];
+};
+
+export type JobInfoInput = {
+  id: string;
+  includeUnpublishedJobPostingsIds?: boolean;
+  expand?: string[];
+};
+
+export type InterviewPlanListInput = {
+  includeArchived?: boolean;
+  cursor?: string;
+  limit?: number;
 };
 
 export type ApplicationStageChangeInput = {
@@ -140,6 +179,10 @@ export class AshbyApiClient {
     return this.request<any>("candidate.create", input as unknown as Record<string, unknown>);
   }
 
+  async candidateUpdate(input: CandidateUpdateInput) {
+    return this.request<any>("candidate.update", input as unknown as Record<string, unknown>);
+  }
+
   async candidateCreateNote(candidateId: string, note: string) {
     return this.request<any>("candidate.createNote", { candidateId, note });
   }
@@ -170,6 +213,22 @@ export class AshbyApiClient {
 
   async interviewStageList(interviewPlanId: string) {
     return this.request<any[]>("interviewStage.list", { interviewPlanId });
+  }
+
+  async jobList(input: JobListInput = {}) {
+    return this.request<any[]>("job.list", input as unknown as Record<string, unknown>);
+  }
+
+  async jobInfo(input: JobInfoInput) {
+    return this.request<any>("job.info", input as unknown as Record<string, unknown>);
+  }
+
+  async interviewPlanList(input: InterviewPlanListInput = {}) {
+    return this.request<any[]>("interviewPlan.list", input as unknown as Record<string, unknown>);
+  }
+
+  async sourceList(includeArchived = false) {
+    return this.request<any[]>("source.list", { includeArchived });
   }
 
   async candidateListNotes(candidateId: string, cursor?: string) {

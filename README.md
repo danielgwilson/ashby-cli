@@ -5,8 +5,10 @@ Agent-first CLI for Ashby's official API.
 This CLI is intended for operational workflows around:
 
 - candidate search and lookup
+- candidate enrichment / upsert
 - application creation and stage movement
 - candidate notes
+- job, source, interview-plan, and stage discovery
 - application history and feedback
 - interview schedules
 - synthetic feed reconstruction from public API surfaces
@@ -104,7 +106,10 @@ ashby candidate search --name "Jane Doe" --email "jane@example.com" --json
 ashby candidate get <candidate-id> --json
 ashby candidate notes --candidate-id <candidate-id> --json
 ashby candidate create --name "Jane Doe" --email "jane@example.com" --linkedin-url "https://linkedin.com/in/jane" --json
+ashby candidate update --candidate-id <candidate-id> --github-url "https://github.com/jane" --suppress-notifications --json
+ashby candidate upsert --name "Jane Doe" --email "jane@example.com" --phone-number "+14155550123" --json
 ashby note create --candidate-id <candidate-id> --note "Strong fast-track candidate" --json
+ashby note ensure --candidate-id <candidate-id> --marker "AHH 2026" --note-file ./note.txt --json
 ```
 
 ### Applications
@@ -122,7 +127,13 @@ ashby application stage-change --application-id <application-id> --interview-sta
 ### Pipeline metadata
 
 ```bash
+ashby job list --status Open,Draft --json
+ashby job get <job-id> --json
+ashby job search --title "Founding Engineer" --json
+ashby interview-plan list --json
 ashby stage list --interview-plan-id <plan-id> --json
+ashby stage list --job-id <job-id> --json
+ashby source list --json
 ashby interview schedules --application-id <application-id> --json
 ashby interview events --application-id <application-id> --json
 ```
