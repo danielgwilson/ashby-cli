@@ -51,6 +51,17 @@ describe("AshbyApiClient", () => {
     });
   });
 
+  it("fetches candidate info with the documented id field", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true, results: { id: "cand_123" } }), { status: 200 }));
+    const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await client.candidateInfo("cand_123");
+
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.ashbyhq.com/candidate.info");
+    expect(JSON.parse(init.body as string)).toEqual({ id: "cand_123" });
+  });
+
   it("maps discovery helpers to official endpoints", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true, results: [] }), { status: 200 }));
     const client = new AshbyApiClient({ apiKey: "secret-key", fetchImpl: fetchImpl as unknown as typeof fetch });

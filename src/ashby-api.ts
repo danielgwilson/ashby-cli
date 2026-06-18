@@ -172,7 +172,7 @@ export class AshbyApiClient {
   }
 
   async candidateInfo(candidateId: string) {
-    return this.request<any>("candidate.info", { candidateId });
+    return this.request<any>("candidate.info", { id: candidateId });
   }
 
   async candidateCreate(input: CandidateCreateInput) {
